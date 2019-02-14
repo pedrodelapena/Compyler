@@ -6,7 +6,7 @@ def calc(stg):
     firstNeg = False #flag
 
     if stg[0] == "-": #considering there won't be more than one "-" | while
-        isneg = True 
+        firstNeg = True 
         stg = stg[1:]
 
     for i in range(len(stg)):
