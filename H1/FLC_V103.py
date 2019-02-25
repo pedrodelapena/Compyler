@@ -10,7 +10,7 @@ class Tokenizador:
 		self.current = Token(END, END)
 
 	def selectNext(self): #updates position
-		c = 0 #input placeholder
+		c = "" #input placeholder | previously a number, troublemaker that made me sad and literally caused V1.0.3
 
 		if self.position >= len(self.origin): #this means we got to the end of the input and we'll have to add something there
 			token = Token(END,'void')
@@ -19,10 +19,11 @@ class Tokenizador:
 		#going back to V0.1.X
 		elif self.origin[self.position].isdigit():
 			while (self.position<(len(self.origin)) and (self.origin[self.position]).isdigit()): #we'll be good till we find a symbol/reach the end of inp
-				c += int(self.origin[self.position]) #stores the number
+				c += self.origin[self.position] #stores the number
 				#print(self.position)
 				self.position += 1
 			#print("hello there "+str(self.position))
+			c = int(c)
 			token = Token(DIG, c)
 			self.current = token
 
@@ -39,14 +40,14 @@ class Tokenizador:
 class Parser: #token parser
 	token = None
 	def start(stg):
-		total = 0
+		total = 0 
 		Parser.token = Tokenizador(stg) #let the fun begin	
 		Parser.token.selectNext()
 		#print(Parser.token.current.ttype)
 		#print(Parser.token.current.tvalue)
 
 		if Parser.token.current.ttype == DIG:
-			total += Parser.token.current.tvalue
+			total = Parser.token.current.tvalue
 			Parser.token.selectNext()
 			while Parser.token.current.ttype != END: #breaks after end of input string
 
