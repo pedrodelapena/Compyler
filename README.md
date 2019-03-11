@@ -2,4 +2,4 @@
 FLC
 
 ## Diagramas 
-![Diagramaaaa](diagrama.png)
+![Diagramaaaa](diagramas.png)
