@@ -5,5 +5,5 @@ FLC
 ![Diagramaaaa](diagramas.png)
 
 ## EBNF
-# Expressão = termo{(+|-), número}
-# Termo = número{(*|/),número}
+### Expressão = termo{(+|-), número}
+### Termo = número{(*|/),número}
