@@ -2,8 +2,7 @@
 FLC
 
 ## Diagramas 
-![Diagramaaaa](diagramas.png)
+![Diagramaaaa](diagrama.png)
 
 ## EBNF
-### Expressão = termo{(+|-), número}
-### Termo = número{(*|/),número}
+![ebnffff](ebnf.png)
