@@ -54,12 +54,12 @@ class Tokenizer:
 				self.current = token
 
 			elif self.origin[self.position] == '(': #we're about to give priority to something!
-				token = Token("(", "(")
+				token = Token(POPN, "(")
 				self.position += 1
 				self.current = token
 			
 			elif self.origin[self.position] == ')': #we're about to end someone's priority!
-				token = Token(")", ")")
+				token = Token(PCLS, ")")
 				self.position += 1
 				self.current = token
 	
@@ -73,27 +73,29 @@ class Tokenizer:
 
 		return token
 
+
+
 class Parser: #token parser
 
-	def start(stg):
+	def run(stg):
 		proCode = PrePro.filter(stg)
 		Parser.token = Tokenizer(stg) #let the fun begin
 		#print(Parser.token.current.ttype)	
-		if Parser.token.current.ttype != END:
-			return Parser.parserExpression()
+		tree = Parser.parserExpression() #Raul is our Lord and Savior
+		if Parser.token.current.ttype == END: #praise Raul!
+			return tree
 		else:
-			raise Exception("Error - Unexpected space")
+			raise Exception("Error - Unexpected token")
 
 	def parserFactor():
-		total = 0
 		if Parser.token.current.ttype == INT:
 			total = IntVal(Parser.token.current.tvalue, [])
 			Parser.token.selectNext()
-		
-		elif Parser.token.current.ttype == "(":
+
+		elif Parser.token.current.ttype == POPN:
 			Parser.token.selectNext()
 			total = Parser.parserExpression()
-			if Parser.token.current.ttype == ")":
+			if Parser.token.current.ttype == PCLS:
 				Parser.token.selectNext()
 			else:
 				raise Exception("Error - missing parenthesis )")
@@ -128,7 +130,6 @@ class Parser: #token parser
 		
 		return total
 
-
 	@staticmethod
 	def parserExpression():
 		total = Parser.parserTerm() #priority 
@@ -144,6 +145,8 @@ class Parser: #token parser
 				total = BinOp("-", children)
 
 		return total
+
+
 
 class PrePro:
 	def filter(inp_stg):
@@ -211,15 +214,15 @@ POPN = "(" #parenthesis open
 PCLS = ")"	#parenthesis close
 
 def main():
-	inpFile = open("inputs.vbs", "r")
-	inpFile = inpFile.readlines()
-	i = 0
+	with open("inputs.vbs", "r") as inVals:
+		inpFile = inVals.readlines()
 
+	i = 0
 	while i < len(inpFile): #iterating through every line from input file (it calculates aswell, duh)
 		try:
 			print("\n"+"----- Line "+str(i)+" -----")
 			inpFile[i] = inpFile[i].replace("\\n", "\n") #previously this removed spaces and that's not good 
-			out = Parser.start(inpFile[i])
+			out = Parser.run(inpFile[i])
 			print("Result = "+str(out.Evaluate()))
 			i += 1
 		except Exception as err:
