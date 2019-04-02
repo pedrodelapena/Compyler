@@ -1,14 +1,13 @@
-1+2
-3-2
-1+2-3
-11+22-33
-789    + 345    - 123
-'bla 1 ' bla
-11+22-33 '
-4/2+3
-3+4/2
-2 + 3 * 'bla   5
---3+2
----1+1
--2+3
-2*2)
+BEGIN
+BEGIN
+a = 2
+b = 5/20
+c = a*b
+BEGIN
+PRINT a
+PRINT b
+PRINT c
+END
+PRINT a+3000
+END
+END
