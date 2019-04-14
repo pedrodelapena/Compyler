@@ -2,7 +2,7 @@
 FLC
 
 ## Diagramas 
-![Diagramaaaa](diagrama.png)
+![Diagramaaaa](diagramas.png)
 
 ## EBNF
 ![ebnffff](ebnf.png)
