@@ -73,6 +73,16 @@ class Tokenizer:
 				self.position += 1
 				self.current = token
 
+			elif self.origin[self.position] == '<': #we're about assign something
+				token = Token(LSST, "<")
+				self.position += 1
+				self.current = token
+
+			elif self.origin[self.position] == '>': #we're about assign something
+				token = Token(GRTT, ">")
+				self.position += 1
+				self.current = token
+
 			elif self.origin[self.position].isalpha(): #then Raul said: "python users will be blessed with .isalpha()"
 				idntT = ""
 				while (self.position<(len(self.origin)) and (self.origin[self.position]).isdigit() or 
@@ -106,9 +116,7 @@ class Parser: #token parser
 	def run(stg):
 		proCode = PrePro.filter(stg)
 		Parser.token = Tokenizer(stg) #let the fun begin
-		#print(Parser.token.current.ttype)
-		#print(Parser.token.current.tvalue)
-		tree = Parser.parserStatements() #Raul is our Lord and Savior
+		tree = Parser.parserStatements() 
 		Parser.token.selectNext()
 		while Parser.token.current.ttype == BREAK:
 			Parser.token.selectNext()
@@ -142,6 +150,10 @@ class Parser: #token parser
 
 		elif Parser.token.current.ttype == IDNT:
 			total = Identifier(Parser.token.current.tvalue, [])
+			Parser.token.selectNext()
+
+		elif Parser.token.current.ttype == INPT:
+			total = InputOp([])
 			Parser.token.selectNext()
 
 		else:
@@ -180,26 +192,32 @@ class Parser: #token parser
 
 		return total
 
-	def parserStatements():
-		statementList = []
-		if Parser.token.current.ttype == "BEGIN":
+	def parserRelExpression():
+		total = Parser.parserExpression() #priority 
+		if Parser.token.current.ttype == GRTT: #greater than
 			Parser.token.selectNext()
-			if Parser.token.current.ttype == BREAK:
-				Parser.token.selectNext()
+			children = [total, Parser.parserExpression()]
+			total = BinOp(">", children)
 
-				while Parser.token.current.ttype != "END": #AAAAAAA I had this as "EOF" - my perv EOF was named "END" instead...
-					statementList.append(Parser.parserStatement())
-					if Parser.token.current.ttype != BREAK:
-						raise Exception("Error - line break expected - got " + Parser.token.current.ttype)
-					else:
-						Parser.token.selectNext()
+		if Parser.token.current.ttype == LSST: #greater than
+			Parser.token.selectNext()
+			children = [total, Parser.parserExpression()]
+			total = BinOp("<", children)
 
-				return Statements("statement", statementList)
-			
-			else:
-				raise Exception("Error - missing line break on 'BEGIN'")
-		else:
-			raise Exception("Error - 'BEGIN' expected - got "+ Parser.token.current.ttype)
+		if Parser.token.current.ttype == "=":
+			Parser.token.selectNext()
+			children = [total, Parser.parserExpression()]
+			total = BinOp("=", children)
+
+		return total
+
+	def parserStatements():
+		statementList = [Parser.parserStatement()]
+		while Parser.token.current.ttype == BREAK:
+			Parser.token.selectNext()
+			statementList.append(Parser.parserStatement())
+
+		return Statements("statements", statementList)
 
 	def parserStatement():
 		if Parser.token.current.ttype == IDNT:
@@ -217,10 +235,37 @@ class Parser: #token parser
 			Parser.token.selectNext()
 			total = Print("PRINT", [Parser.parserExpression()])
 		
-		elif Parser.token.current.ttype == "BEGIN":
-			total = Parser.parserStatements()
+		elif Parser.token.current.ttype == WHILE:
 			Parser.token.selectNext()
+			total = WhileOp([Parser.parserRelExpression()])
+			if Parser.token.current.ttype == BREAK:
+				Parser.token.selectNext()
+				total.children.append(Parser.parserStatements())
+			if Parser.token.current.ttype != WEND:
+				raise Exception("Error - 'WEND' expected")
+			Parser.token.selectNext()
+
+		elif Parser.token.current.ttype == IF:
+			Parser.token.selectNext()
+			total = IfOp([Parser.parserRelExpression()])
+			if Parser.token.current.ttype == THEN:
+				Parser.token.selectNext()
+				if Parser.token.current.ttype == BREAK:
+					Parser.token.selectNext()	
+					total.children.append(Parser.parserStatements())
+
+					if Parser.token.current.ttype == ELSE:
+						Parser.token.selectNext()
+						if Parser.token.current.ttype == BREAK:
+							Parser.token.selectNext()
+							total.children.append(Parser.parserStatements())
 			
+					if Parser.token.current.ttype != END:
+						raise Exception("Error - 'END (IF)' expected")
+					Parser.token.selectNext()
+					if Parser.token.current.ttype != IF:
+						raise Exception("Error - 'IF' expected")
+					Parser.token.selectNext()
 		else:
 			total = NoOp(0,[])
 		
@@ -241,11 +286,11 @@ class Node:
 		pass
 
 class BinOp(Node): #binary ops -> a(binop)b = c
-	def __init__(self, val, child):
+	def __init__(self, val, children):
 		self.value = val
-		self.children = child
+		self.children = children
 
-	def Evaluate(self,symb): #I forgot to add symb there aaaaaaaaaaaaaaaaaaaaa
+	def Evaluate(self,symb):
 		if self.value == "+":
 			return self.children[0].Evaluate(symb) + self.children[1].Evaluate(symb)
 		elif self.value == "-":
@@ -254,11 +299,17 @@ class BinOp(Node): #binary ops -> a(binop)b = c
 			return self.children[0].Evaluate(symb) * self.children[1].Evaluate(symb)
 		elif self.value == "/":
 			return self.children[0].Evaluate(symb) / self.children[1].Evaluate(symb)
+		elif self.value == "=":
+			return self.children[0].Evaluate(symb) == self.children[1].Evaluate(symb)
+		elif self.value == "<":
+			return self.children[0].Evaluate(symb) < self.children[1].Evaluate(symb)
+		elif self.value == ">":
+			return self.children[0].Evaluate(symb) > self.children[1].Evaluate(symb)
 
 class UnOp(Node): #unary ops -> -(a) = -a | -(-a) = a
-	def __init__(self, val, child):
+	def __init__(self, val, children):
 		self.value = val
-		self.children = child
+		self.children = children
 	
 	def Evaluate(self, symb): #I forgot to add symb there aaaaaaaaaaaaaaaaaaaaa
 		if self.value == "-":
@@ -267,54 +318,88 @@ class UnOp(Node): #unary ops -> -(a) = -a | -(-a) = a
 			return self.children[0].Evaluate(symb)
 
 class IntVal(Node): #gets and returns int
-	def __init__(self, val, child): 
+	def __init__(self, val, children): 
 		self.value = val
-		self.children = child	
+		self.children = children	
 	
 	def Evaluate(self, symb): #I forgot to add symb there aaaaaaaaaaaaaaaaaaaaa
 		return self.value
 
-class NoOp(Node): #dummy - nothing to do here yet
-	def __init__(self, val, child):
+class NoOp(Node): #dummy - nothing to do here
+	def __init__(self, val, children):
 		self.value = val
-		self.children = child	
+		self.children = children	
 
 	def Evaluate(self):
 		return
 
 class Assignment(Node): #sets value to given variable - a = K
-	def __init__(self, val, child):
+	def __init__(self, val, children):
 		self.value = val
-		self.children = child
+		self.children = children
 	
 	def Evaluate(self, symb):
 		return symb.setter(self.children[0], self.children[1].Evaluate(symb))
 
 
 class Identifier(Node):
-	def __init__(self, val, child):
+	def __init__(self, val, children):
 		self.value = val
-		self.children = child
+		self.children = children
 	
 	def Evaluate(self, symb):
 		return symb.getter(self.value)
 
 class Statements(Node): #statement in statements
-	def __init__(self, val, child):
+	def __init__(self, val, children):
 		self.value = val
-		self.children = child
+		self.children = children
 	
 	def Evaluate(self, symb):
 		for i in self.children:
+			#idk why this doesn't work... I don't know what to do anymore
 			i.Evaluate(symb)
 
 class Print(Node): 
-	def __init__(self, val, child):
+	def __init__(self, val, children):
 		self.value = val
-		self.children = child
+		self.children = children
 	
 	def Evaluate(self,symb):
 		print(self.children[0].Evaluate(symb))
+
+class WhileOp(Node):
+	def __init__(self, children):
+		self.children = children
+
+	def Evaluate(self,symb):
+		while self.children[0].Evaluate(symb):
+			self.children[1].Evaluate(symb)
+
+class IfOp(Node):
+	def __init__(self, children):
+		self.children = children
+	
+	def Evaluate(self,symb):
+		if len(self.children) == 3:
+			if self.children[0].Evaluate(symb):
+				return self.children[1].Evaluate(symb)
+			else:
+				return self.children[2].Evaluate(symb)
+
+		else:
+			if self.children[0].Evaluate(symb):
+				return self.children[1].Evaluate(symb)
+			else:
+				return self.children[2].Evaluate(symb)
+
+class InputOp(Node):
+	def __init__(self, val):
+		self.value = val
+	
+	def Evaluate(self,symb):
+		return input()
+
 
 class SymbolTable:
 	def __init__(self):
@@ -330,7 +415,6 @@ class SymbolTable:
 		self.varDict[var] = val
 
 
-
 #Tokens
 PLUS = "PLUS" #sum 
 MINUS = "MINUS" #subtract | negative numbers
@@ -340,18 +424,28 @@ MULT = "MULT" #multiply
 DIV = "DIV" #divide	
 POPN = "(" #parenthesis open
 PCLS = ")"	#parenthesis close
+
 ASGN = "=" #assignment
 BREAK = "\n" #line break
 IDNT = "IDENTIFIER" #identifier, O RLY?
+GRTT = ">" #greater than
+LSST = "<" #less than
+INPT = "INPUT" #input
+WHILE = "WHILE" #while start
+WEND = "WEND" #while end 
+IF = "IF" #if token
+THEN = "THEN" #then token
+END = "END"
+ELSE = "ELSE"
 
 #reserved words list
-RWL = ["BEGIN", "END", "PRINT"] 
+RWL = ["BEGIN", "END", "PRINT", "IF", "THEN","ELSE", "OR", "AND", "WHILE", "WEND", "EOF"] 
+
+symb = SymbolTable()
 
 def main():
-	
-	symb = SymbolTable()
 	try:
-		inpFile = sys.argv[1]
+		inpFile = "inputs.vbs"#sys.argv[1]
 	except IndexError:
 		print("failed to find file")
 		sys.exit(1)
@@ -363,7 +457,7 @@ def main():
 		out = Parser.run(inp)
 		out.Evaluate(symb)
 	except Exception as err:
-			print(err)
+		print(err)
 
 if __name__== "__main__":
     main()

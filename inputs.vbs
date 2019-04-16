@@ -1,13 +1,7 @@
-BEGIN
-BEGIN
-a = 2
-b = 5/20
-c = a*b
-BEGIN
-PRINT a
+a=10
+b=10
+IF a = b
+b = b + 1
+IF
+END
 PRINT b
-PRINT c
-END
-PRINT a+3000
-END
-END
