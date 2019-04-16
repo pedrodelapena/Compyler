@@ -115,7 +115,7 @@ class Parser: #token parser
 
 	def run(stg):
 		proCode = PrePro.filter(stg)
-		Parser.token = Tokenizer(stg) #let the fun begin
+		Parser.token = Tokenizer(proCode) #quick fix on v2.1
 		tree = Parser.parserStatements() 
 		Parser.token.selectNext()
 		while Parser.token.current.ttype == BREAK:
