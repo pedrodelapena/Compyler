@@ -5,9 +5,9 @@ FLC
 ![Diagramaaaa](diagramas.png)
 
 ## EBNF
-Statements = { Statement, "/n" };
-Statement = (lambda | "Identifier, "=", Expression | "Print", Expression | "While", RelExpression, Statements, "Wend") | "If", RelExpression, "Then", Statements, (lambda | ("else", Statement));
-RelExpression = Expression, (“>” | “<” | “=”), Expression;
-Expression = Term, { (“+” | “-”), Term };
-Term =  Factor, { (“*” | “/”), Factor };
-Factor = (“+” | “-”), Factor | INT | “(”, Expression, “)” | Identifier;
+Statements = { Statement, "/n" };<br>
+Statement = (lambda | "Identifier, "=", Expression | "Print", Expression | "While", RelExpression, Statements, "Wend") | "If", RelExpression, "Then", Statements, (lambda | ("else", Statement));;<br>
+RelExpression = Expression, (“>” | “<” | “=”), Expression;;<br>
+Expression = Term, { (“+” | “-”), Term };;<br>
+Term =  Factor, { (“*” | “/”), Factor };;<br>
+Factor = (“+” | “-”), Factor | INT | “(”, Expression, “)” | Identifier;;<br>
