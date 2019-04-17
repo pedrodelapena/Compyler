@@ -234,7 +234,7 @@ class Parser: #token parser
 		
 		elif Parser.token.current.ttype == WHILE:
 			Parser.token.selectNext()
-			total = WhileOp([Parser.parserRelExpression()])
+			total = WhileOp("while", [Parser.parserRelExpression()])
 
 			if Parser.token.current.ttype == BREAK:
 				Parser.token.selectNext()
@@ -445,7 +445,8 @@ def main():
 	
 	symb = SymbolTable()
 	try:
-		inpFile = sys.argv[1]
+		inpFile = "inputs.vbs"
+		#inpFile = sys.argv[1]
 	except IndexError:
 		print("failed to find file")
 		sys.exit(1)
