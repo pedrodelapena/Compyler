@@ -445,20 +445,20 @@ def main():
 	
 	symb = SymbolTable()
 	try:
-		inpFile = "inputs.vbs"
-		#inpFile = sys.argv[1]
+		#inpFile = "inputs.vbs"
+		inpFile = sys.argv[1]
 	except IndexError:
 		print("failed to find file")
 		sys.exit(1)
 
 	with open(inpFile, "r") as file:
 		inp = file.read() +"\n"
-	#try:
-	inp = inp.replace("\\n", "\n") 
-	out = Parser.run(inp)
-	out.Evaluate(symb)
-	#except Exception as err:
-	#print(err)
+	try:
+		inp = inp.replace("\\n", "\n") 
+		out = Parser.run(inp)
+		out.Evaluate(symb)
+	except Exception as err:
+		print(err)
 
 if __name__== "__main__":
     main()
