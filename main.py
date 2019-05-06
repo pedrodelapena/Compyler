@@ -90,8 +90,12 @@ class Tokenizer:
 				temp = idntT.upper()
 
 				if temp in RWL:
-					token = Token(temp, temp) #previously with an identifier - caused a funny error (not really, I cried)
-					self.current = token
+					if (temp == "INTEGER") or (temp == "BOOLEAN"):
+						token = Token("TYPE", temp) 
+						self.current = token
+					else:	 
+						token = Token(temp, temp) 
+						self.current = token
 				else:
 					token = Token(IDNT, temp)
 					self.current = token
@@ -111,16 +115,11 @@ class Tokenizer:
 class Parser: #token parser
 
 	def run(stg):
-		proCode = PrePro.filter(stg)
+		proCode = (PrePro.filter(stg)).lower()
 		Parser.token = Tokenizer(proCode) #previously missed something here
-		tree = Parser.parserStatements() 
-		Parser.token.selectNext()
-		while Parser.token.current.ttype == BREAK:
-			Parser.token.selectNext()
-		if Parser.token.current.ttype == EOF: #praise Raul!
-			return tree
-		else:
-			raise Exception("Error - Unexpected token "+str(Parser.token.current.ttype))
+		#Parser.token.selectNext()
+		tree = Parser.Program()
+		return tree
 
 	def parserFactor():
 		if Parser.token.current.ttype == INT:
@@ -150,7 +149,20 @@ class Parser: #token parser
 			Parser.token.selectNext()
 
 		elif Parser.token.current.ttype == INPT:
-			total = InputOp([])
+			total = InputOp([],[])
+			Parser.token.selectNext()
+
+		elif Parser.token.current.ttype == "NOT":
+			Parser.token.selectNext()
+			children = [Parser.parserFactor()]
+			total = UnOp("not",children)
+
+		elif Parser.token.current.ttype == "TRUE":
+			total = BoolValue(True)
+			Parser.token.selectNext()
+
+		elif Parser.token.current.ttype == "FALSE":
+			total = BoolValue(False)
 			Parser.token.selectNext()
 
 		else:
@@ -220,13 +232,22 @@ class Parser: #token parser
 		if Parser.token.current.ttype == IDNT:
 			ident = Parser.token.current.tvalue
 			Parser.token.selectNext()
-
 			if Parser.token.current.ttype == ASGN:
 				assign = Parser.token.current.tvalue
 				Parser.token.selectNext()
 				total = Assignment(assign, [ident, Parser.parserExpression()])
-			else:
-				raise Exception("Error - Assignment '=' expecte	d")
+
+		elif Parser.token.current.ttype == "DIM":
+			Parser.token.selectNext()
+			if Parser.token.current.ttype == "IDENTIFIER":
+				var = Identifier(Parser.token.current.tvalue,[])
+				Parser.token.selectNext()
+				if Parser.token.current.ttype == "AS":
+					Parser.token.selectNext()
+					if Parser.token.current.ttype == "TYPE":
+						vartype = Parser.token.current.tvalue
+						total = VarDec([var,NodeType(vartype)])
+						Parser.token.selectNext()
 		
 		elif Parser.token.current.ttype == "PRINT":
 			Parser.token.selectNext()
@@ -273,6 +294,28 @@ class Parser: #token parser
 		
 		return total
 
+	def Program():
+		tempList = []
+
+		#treating beginning and end of input file
+		for i in ["sub", "main", "(", ")", "\n"]:
+			if Parser.token.current.tvalue.lower() != i:
+				print(i)
+				print(Parser.token.current.tvalue.lower())
+				raise Exception("Error - check your input file - got "+ Parser.token.current.tvalue)
+			Parser.token.selectNext()
+
+		tempList.append(Parser.parserStatement())
+
+		while Parser.token.current.ttype == "\n":
+			Parser.token.selectNext()
+			tempList.append(Parser.parserStatement())
+
+		if Parser.token.current.tvalue.lower() == "end":
+			Parser.token.selectNext()
+			if Parser.token.current.tvalue.lower() == "sub":
+				return Statements("statements", tempList)
+
 
 class PrePro:
 	def filter(inp_stg):
@@ -293,38 +336,71 @@ class BinOp(Node): #binary ops -> a(binop)b = c
 		self.children = children
 
 	def Evaluate(self,symb):
+		#checking if variables types match so we can go on and do ops!
+		var1 = self.children[0].Evaluate(symb)
+		var2 = self.children[1].Evaluate(symb)
+
+		if type(var1) is tuple:
+			var1 = var1[0]
+			vt1 = var1[1]
+		else:
+			if type(var1) is int:
+				vt1 = "integer"
+			if type(var1) is bool:
+				vt1 = "boolean"
+
+		if type(var2) is tuple:
+			var2 = var2[0]
+			vt2 = var2[1]
+		else:
+			if type(var2) is int:
+				vt2 = "integer"
+			if type(var2) is bool:
+				vt2 = "boolean"
+		
+		if vt1 != vt2:
+			raise Exception("Error - var types don't match -> var1 "+str(vt1)+", var2: "+str(vt2))
+
 		if self.value == "+":
-			return self.children[0].Evaluate(symb) + self.children[1].Evaluate(symb)
+			return (var1 + var2)
 		elif self.value == "-":
-			return self.children[0].Evaluate(symb) - self.children[1].Evaluate(symb)
+			return (var1 - var2)
 		elif self.value == "*":
-			return self.children[0].Evaluate(symb) * self.children[1].Evaluate(symb)
+			return (var1 * var2)
 		elif self.value == "/":
-			return self.children[0].Evaluate(symb) / self.children[1].Evaluate(symb)
+			return (var1 / var2)
 		elif self.value == "=":
-			return self.children[0].Evaluate(symb) == self.children[1].Evaluate(symb)
+			return (var1 == var2)
 		elif self.value == "<":
-			return self.children[0].Evaluate(symb) < self.children[1].Evaluate(symb)
+			return (var1 < var2)
 		elif self.value == ">":
-			return self.children[0].Evaluate(symb) > self.children[1].Evaluate(symb)
+			return (var1 > var2)
+		elif self.value == "or":
+			return (var1 or var2)
+		elif self.value == "and":
+			return (var1 and var2)
 
 class UnOp(Node): #unary ops -> -(a) = -a | -(-a) = a
 	def __init__(self, value, children):
 		self.value = value
 		self.children = children
 	
-	def Evaluate(self, symb): #I forgot to add symb there aaaaaaaaaaaaaaaaaaaaa
-		if self.value == "-":
+	def Evaluate(self, symb):
+		if self.value == "+":
+			return (self.children[0].Evaluate(symb))
+		elif self.value == "-":
 			return -(self.children[0].Evaluate(symb))
+		elif self.value == "not":
+			return (self.children[0].Evaluate(symb))*-1
 		else:
-			return self.children[0].Evaluate(symb)
+			raise Exception("Error - undefined UnOp: "+ str(self.value))
 
 class IntVal(Node): #gets and returns int
 	def __init__(self, value, children): 
 		self.value = value
 		self.children = children	
 	
-	def Evaluate(self, symb): #I forgot to add symb there aaaaaaaaaaaaaaaaaaaaa
+	def Evaluate(self, symb):
 		return self.value
 
 class NoOp(Node): #dummy - nothing to do here
@@ -398,7 +474,18 @@ class InputOp(Node):
 		self.children = children
 	
 	def Evaluate(self,symb):
-		return int(input(""))
+		return input()
+
+class NodeType(Node):
+	def __init__(self, value):
+		self.value = value
+
+		temptrylist = ["integer","boolean"]
+		if value.lower() not in temptrylist:
+			raise Exception("Error - unexpected type " + str(self.value))
+			
+	def Evaluate(self, symb):
+		return self.value
 
 class SymbolTable:
 	def __init__(self):
@@ -412,9 +499,28 @@ class SymbolTable:
 
 	def setter(self, var, value): #assigns value to variable
 		self.varDict[var] = value
+	
+	def declarator(self, var, value):
+		if var in RWL:
+			raise Exception("Error - variable name can't be a reserved word")
+		self.varDict[var] = value
+
+class VarDec(Node):
+	def __init__(self, children):
+		self.children = children
+	
+	def Evaluate(self, symb):
+		return symb.declarator(self.children[0].value, [None, self.children[1].Evaluate(symb)])
+
+class BoolValue(Node):
+	def __init__(self, value):
+		self.value = value
+	
+	def Evaluate(self,symb):
+		return self.value
 
 
-#Tokens
+#Tokens -- THIS IS A MESS AND I REGRET DOING THIS FOR REAL
 PLUS = "PLUS" #sum 
 MINUS = "MINUS" #subtract | negative numbers
 INT = "INT" #digits (currently ints only)
@@ -436,16 +542,16 @@ IF = "IF" #if token
 THEN = "THEN" #then token
 END = "END"
 ELSE = "ELSE"
- 
 
 #reserved words list
-RWL = ["BEGIN", "END", "PRINT", "IF", "THEN","ELSE", "OR", "AND", "WHILE", "WEND", "EOF"] 
+RWL = ["BEGIN", "END", "PRINT", "IF", "THEN", "ELSE", "OR", "AND", "WHILE", "WEND", "EOF",
+		"INPUT", "NOT", "DIM", "INTEGER", "BOOLEAN", "TRUE", "FALSE", "AS", "MAIN", "SUB"] 
 
 def main():
 	
 	symb = SymbolTable()
 	try:
-		#inpFile = "inputs.vbs"
+	#inpFile = "inputs.vbs"
 		inpFile = sys.argv[1]
 	except IndexError:
 		print("failed to find file")
