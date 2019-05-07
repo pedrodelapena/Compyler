@@ -11,4 +11,4 @@ RelExpression = Expression, (lambda | (“>” | “<” | “=” ), Expression
 Type = "Integer" | "Boolean"; <br>
 Expression = Term, { (“+” | “-”), Term };<br>
 Term =  Factor, { (“*” | “/”), Factor };<br>
-Factor = (“+” | “-”), Factor | INT | “(”, Expression, “)” | Identifier | ;<br>
+Factor = (“+” | “-”), Factor | INT | “(”, Expression, “)” | Identifier | Input ;<br>
