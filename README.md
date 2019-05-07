@@ -2,7 +2,7 @@
 FLC
 
 ## Diagramas 
-![Diagramaaaa](diagramas.png)
+![Diagramaaaa](h7diagrams.png)
 
 ## EBNF
 Statements = { Statement, "/n" };<br>
