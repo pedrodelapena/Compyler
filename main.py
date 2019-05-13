@@ -13,12 +13,12 @@ class Tokenizer:
 		self.current = self.selectNext()
 
 	def selectNext(self): #updates position
-		c = "" #input placeholder | previously a number, troublemaker that made me sad and literally caused V1.0.3
+		c = "" 
 
 		while (self.position<(len(self.origin)) and (self.origin[self.position]).isspace() and self.origin[self.position] != "\n"): #for white spaces
 			self.position += 1
 			
-		if self.position == len(self.origin): #this means we got to the end of the input and we'll have to add something there
+		if self.position == len(self.origin):
 			token = Token(EOF,"EOF")
 			self.current = token
 			c = "EOF"
@@ -126,14 +126,6 @@ class Parser: #token parser
 			total = IntVal(Parser.token.current.tvalue, [])
 			Parser.token.selectNext()
 
-		elif Parser.token.current.ttype == POPN:
-			Parser.token.selectNext()
-			total = Parser.parserExpression()
-			if Parser.token.current.ttype == PCLS:
-				Parser.token.selectNext()
-			else:
-				raise Exception("Error - missing parenthesis )")
-
 		elif Parser.token.current.ttype == PLUS: 
 			Parser.token.selectNext()
 			children = [Parser.parserFactor()]
@@ -146,10 +138,6 @@ class Parser: #token parser
 
 		elif Parser.token.current.ttype == IDNT:
 			total = Identifier(Parser.token.current.tvalue, [])
-			Parser.token.selectNext()
-
-		elif Parser.token.current.ttype == INPT:
-			total = InputOp([],[])
 			Parser.token.selectNext()
 
 		elif Parser.token.current.ttype == "NOT":
@@ -165,6 +153,18 @@ class Parser: #token parser
 			total = BoolValue(False)
 			Parser.token.selectNext()
 
+		elif Parser.token.current.ttype == INPT:
+			total = InputOp([],[])
+			Parser.token.selectNext()
+
+		elif Parser.token.current.ttype == POPN:
+			Parser.token.selectNext()
+			total = Parser.parserRelExpression()
+			if Parser.token.current.ttype == PCLS:
+				Parser.token.selectNext()
+			else:
+				raise Exception("Error - missing parenthesis )")
+
 		else:
 			raise Exception("Error - unidentified token - " + str(Parser.token.current.tvalue))
 
@@ -172,7 +172,8 @@ class Parser: #token parser
 
 	def parserTerm():
 		total = Parser.parserFactor()
-		while Parser.token.current.ttype == MULT or Parser.token.current.ttype == DIV:
+		mdalist = ["MULT","DIV","AND"]
+		while Parser.token.current.ttype in mdalist:
 			if Parser.token.current.ttype == MULT: 
 				Parser.token.selectNext()
 				children = [total, Parser.parserFactor()]
@@ -182,27 +183,44 @@ class Parser: #token parser
 				Parser.token.selectNext()
 				children = [total, Parser.parserFactor()]
 				total = BinOp("/", children)
+
+			if Parser.token.current.ttype == "AND":
+				Parser.token.selectNext()
+				children = [total, Parser.parserFactor()]
+				total = BinOp("and", children)
 		
 		return total
 
 	@staticmethod
 	def parserExpression():
 		total = Parser.parserTerm() #priority 
-		while Parser.token.current.ttype == PLUS or Parser.token.current.ttype == MINUS: 
+		oplist = ["PLUS", "MINUS", "OR"]
+		while Parser.token.current.ttype in oplist: 
 			if Parser.token.current.ttype == PLUS: 
 				Parser.token.selectNext()
-				children = [total, Parser.parserTerm()] #literally took me an hour to find this self-copy paste bug
+				children = [total, Parser.parserTerm()]
 				total = BinOp("+", children)
 
 			if Parser.token.current.ttype == MINUS:
 				Parser.token.selectNext()
-				children = [total, Parser.parserTerm()] #literally took me an hour to find this self-copy paste bug
+				children = [total, Parser.parserTerm()] 
 				total = BinOp("-", children)
+
+			if Parser.token.current.ttype == "OR":
+				Parser.token.selectNext()
+				children = [total, Parser.parserTerm()] 
+				total = BinOp("or", children)
 
 		return total
 
 	def parserRelExpression():
 		total = Parser.parserExpression() #priority 
+
+		if Parser.token.current.ttype == "=":
+			Parser.token.selectNext()
+			children = [total, Parser.parserExpression()]
+			total = BinOp("=", children)
+
 		if Parser.token.current.ttype == GRTT: #greater than
 			Parser.token.selectNext()
 			children = [total, Parser.parserExpression()]
@@ -212,11 +230,6 @@ class Parser: #token parser
 			Parser.token.selectNext()
 			children = [total, Parser.parserExpression()]
 			total = BinOp("<", children)
-
-		if Parser.token.current.ttype == "=":
-			Parser.token.selectNext()
-			children = [total, Parser.parserExpression()]
-			total = BinOp("=", children)
 
 		return total
 
@@ -235,7 +248,7 @@ class Parser: #token parser
 			if Parser.token.current.ttype == ASGN:
 				assign = Parser.token.current.tvalue
 				Parser.token.selectNext()
-				total = Assignment(assign, [ident, Parser.parserExpression()])
+				total = Assignment(assign, [Identifier(ident,[]), Parser.parserExpression()])
 
 		elif Parser.token.current.ttype == "DIM":
 			Parser.token.selectNext()
@@ -253,7 +266,7 @@ class Parser: #token parser
 			Parser.token.selectNext()
 			total = Print("PRINT", [Parser.parserExpression()])
 		
-		elif Parser.token.current.ttype == WHILE:
+		elif Parser.token.current.ttype == "WHILE":
 			Parser.token.selectNext()
 			total = WhileOp("while", [Parser.parserRelExpression()])
 
@@ -335,50 +348,32 @@ class BinOp(Node): #binary ops -> a(binop)b = c
 		self.value = value
 		self.children = children
 
+		if len(children) != 2:
+			raise Exception("Error - two children expected, got" +self.children)			
+
 	def Evaluate(self,symb):
 		#checking if variables types match so we can go on and do ops!
-		var1 = self.children[0].Evaluate(symb)
-		var2 = self.children[1].Evaluate(symb)
-
-		if type(var1) is tuple:
-			var1 = var1[0]
-			vt1 = var1[1]
-		else:
-			if type(var1) is int:
-				vt1 = "integer"
-			if type(var1) is bool:
-				vt1 = "boolean"
-
-		if type(var2) is tuple:
-			var2 = var2[0]
-			vt2 = var2[1]
-		else:
-			if type(var2) is int:
-				vt2 = "integer"
-			if type(var2) is bool:
-				vt2 = "boolean"
-		
-		if vt1 != vt2:
-			raise Exception("Error - var types don't match -> var1 "+str(vt1)+", var2: "+str(vt2))
+		var1 = self.children[0].Evaluate(symb)[0]
+		var2 = self.children[1].Evaluate(symb)[0]
 
 		if self.value == "+":
-			return (var1 + var2)
+			return (var1 + var2, "integer")
 		elif self.value == "-":
-			return (var1 - var2)
+			return (var1 - var2, "integer")
 		elif self.value == "*":
-			return (var1 * var2)
+			return (var1 * var2, "integer")
 		elif self.value == "/":
-			return (var1 / var2)
+			return (var1 // var2, "integer")
 		elif self.value == "=":
-			return (var1 == var2)
+			return (var1 == var2, "boolean")
 		elif self.value == "<":
-			return (var1 < var2)
+			return (var1 < var2, "boolean")
 		elif self.value == ">":
-			return (var1 > var2)
+			return (var1 > var2, "boolean")
 		elif self.value == "or":
-			return (var1 or var2)
+			return (var1 or var2, "boolean")
 		elif self.value == "and":
-			return (var1 and var2)
+			return (var1 and var2, "boolean")
 
 class UnOp(Node): #unary ops -> -(a) = -a | -(-a) = a
 	def __init__(self, value, children):
@@ -387,11 +382,15 @@ class UnOp(Node): #unary ops -> -(a) = -a | -(-a) = a
 	
 	def Evaluate(self, symb):
 		if self.value == "+":
-			return (self.children[0].Evaluate(symb))
+			return self.children[0].Evaluate(symb)
 		elif self.value == "-":
-			return -(self.children[0].Evaluate(symb))
+			var = self.children[0].Evaluate(symb)
+			var = (var[0]*-1,var[1])
+			return var
 		elif self.value == "not":
-			return (self.children[0].Evaluate(symb))*-1
+			var = self.children[0].Evaluate(symb)
+			var = (not var[0],var[1])		
+			return var
 		else:
 			raise Exception("Error - undefined UnOp: "+ str(self.value))
 
@@ -401,7 +400,7 @@ class IntVal(Node): #gets and returns int
 		self.children = children	
 	
 	def Evaluate(self, symb):
-		return self.value
+		return (self.value,"integer")
 
 class NoOp(Node): #dummy - nothing to do here
 	def __init__(self, value, children):
@@ -409,7 +408,7 @@ class NoOp(Node): #dummy - nothing to do here
 		self.children = children	
 
 	def Evaluate(self,symb):
-		return
+		pass
 
 class Assignment(Node): #sets value to given variable - a = K
 	def __init__(self, value, children):
@@ -417,7 +416,7 @@ class Assignment(Node): #sets value to given variable - a = K
 		self.children = children
 	
 	def Evaluate(self, symb):
-		return symb.setter(self.children[0], self.children[1].Evaluate(symb))
+		symb.setter(self.children[0].value, self.children[1].Evaluate(symb))
 
 
 class Identifier(Node):
@@ -444,7 +443,7 @@ class Print(Node):
 		self.children = children
 	
 	def Evaluate(self,symb):
-		print(self.children[0].Evaluate(symb))
+		print(self.children[0].Evaluate(symb)[0])
 
 class WhileOp(Node):
 	def __init__(self, value, children):
@@ -452,7 +451,7 @@ class WhileOp(Node):
 		self.children = children
 
 	def Evaluate(self,symb):
-		while self.children[0].Evaluate(symb):
+		while self.children[0].Evaluate(symb)[0]:
 			self.children[1].Evaluate(symb)
 
 class IfOp(Node):
@@ -461,10 +460,10 @@ class IfOp(Node):
 	
 	def Evaluate(self,symb):
 		if self.children[0].Evaluate(symb):
-			return self.children[1].Evaluate(symb)
+			self.children[1].Evaluate(symb)
 		else:
 			if len(self.children) == 3:
-				return self.children[2].Evaluate(symb)
+				self.children[2].Evaluate(symb)
 			else:
 				pass
 
@@ -474,7 +473,7 @@ class InputOp(Node):
 		self.children = children
 	
 	def Evaluate(self,symb):
-		return input()
+		return (int(input()),"integer")
 
 class NodeType(Node):
 	def __init__(self, value):
@@ -485,7 +484,10 @@ class NodeType(Node):
 			raise Exception("Error - unexpected type " + str(self.value))
 			
 	def Evaluate(self, symb):
-		return self.value
+		if self.value == "integer":
+			return (self.value,0)
+		elif self.value == "boolean":
+			return (self.value, False)
 
 class SymbolTable:
 	def __init__(self):
@@ -495,14 +497,16 @@ class SymbolTable:
 		if var in self.varDict.keys():
 			return self.varDict[var]
 		else:
-			raise Exception("Error - undefined variable")
+			raise Exception("Error - undeclared variable")
 
 	def setter(self, var, value): #assigns value to variable
+		if var not in self.varDict:
+			raise Exception("Error - undeclared variable")		
 		self.varDict[var] = value
 	
 	def declarator(self, var, value):
-		if var in RWL:
-			raise Exception("Error - variable name can't be a reserved word")
+		if var in self.varDict:
+			raise Exception("Error - duplicate variable")
 		self.varDict[var] = value
 
 class VarDec(Node):
@@ -510,14 +514,14 @@ class VarDec(Node):
 		self.children = children
 	
 	def Evaluate(self, symb):
-		return symb.declarator(self.children[0].value, [None, self.children[1].Evaluate(symb)])
+		symb.declarator(self.children[0].value, self.children[1].Evaluate(symb))
 
 class BoolValue(Node):
 	def __init__(self, value):
 		self.value = value
 	
 	def Evaluate(self,symb):
-		return self.value
+		return (self.value,"boolean")
 
 
 #Tokens -- THIS IS A MESS AND I REGRET DOING THIS FOR REAL
@@ -550,21 +554,21 @@ RWL = ["BEGIN", "END", "PRINT", "IF", "THEN", "ELSE", "OR", "AND", "WHILE", "WEN
 def main():
 	
 	symb = SymbolTable()
-	try:
-	#inpFile = "inputs.vbs"
-		inpFile = sys.argv[1]
-	except IndexError:
-		print("failed to find file")
-		sys.exit(1)
+	#try:
+	inpFile = "inputs.vbs"
+	#	inpFile = sys.argv[1]
+	#except IndexError:
+	#	print("failed to find file")
+	#	sys.exit(1)
 
 	with open(inpFile, "r") as file:
 		inp = file.read() +"\n"
-	try:
-		inp = inp.replace("\\n", "\n") 
-		out = Parser.run(inp)
-		out.Evaluate(symb)
-	except Exception as err:
-		print(err)
+	#try:
+	inp = inp.replace("\\n", "\n") 
+	out = Parser.run(inp)
+	out.Evaluate(symb)
+	#except Exception as err:
+	#	print(err)
 
 if __name__== "__main__":
     main()
