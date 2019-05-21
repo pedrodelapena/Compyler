@@ -2,13 +2,13 @@
 FLC
 
 ## Diagramas 
-![Diagramaaaa](h7diagrams.png)
+![Diagramaaaa](h7diagramsz.png)
 
 ## EBNF
 Program = { "sub", "main", "(",")", (statement, "/n" | lambda ), "end", "sub"};<br>
-Statement = (lambda | "Identifier, "=", Expression | "Print", Expression | "While", RelExpression, Statements, "Wend") | "If", RelExpression, "Then", Statements, (lambda | ("else", Statement)) | "dim", Identifier, "as", Type;<br>
+Statement = (lambda | "Identifier, "=", RelExpression | "Print", RelExpression | "While", RelExpression, Statements, "Wend") | "If", RelExpression, "Then", Statements, (lambda | ("else", Statement)) "end", "if" | "dim", Identifier, "as", Type;<br>
 RelExpression = Expression, (lambda | (“>” | “<” | “=” ), Expression);<br>
-Type = "Integer" | "Boolean"; <br>
 Expression = Term, { (“+” | “-”), Term };<br>
-Term =  Factor, { (“*” | “/”), Factor };<br>
-Factor = (“+” | “-”), Factor | INT | “(”, Expression, “)” | Identifier | Input ;<br>
+Term =  Factor, { (“*” | “/” | "and"), Factor };<br>
+Factor = (“+” | “-”), Factor | INT | “(”, RelExpression, “)” | "Identifier" | "Input" ;<br>
+Type = "Integer" | "Boolean"; <br>
