@@ -2,7 +2,7 @@
 FLC
 
 ## Diagramas 
-![Diagramaaaa](diagramsz.png)
+![Diagramaaaa](diagrams.png)
 
 ## EBNF
 Program = { "sub", "main", "(",")", (statement, "/n" | lambda ), "end", "sub"};<br>
