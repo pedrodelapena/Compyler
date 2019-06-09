@@ -55,28 +55,33 @@ class Tokenizer:
 				self.position += 1
 				self.current = token
 
-			elif self.origin[self.position] == '(': #we're about to give priority to something!
+			elif self.origin[self.position] == "(": #we're about to give priority to something!
 				token = Token(POPN, "(")
 				self.position += 1
 				self.current = token
 			
-			elif self.origin[self.position] == ')': #we're about to end someone's priority!
+			elif self.origin[self.position] == ")": #we're about to end someone's priority!
 				token = Token(PCLS, ")")
 				self.position += 1
 				self.current = token
 
-			elif self.origin[self.position] == '=': #we're about assign something
+			elif self.origin[self.position] == "=": #we're about assign something
 				token = Token(ASGN, "=")
 				self.position += 1
 				self.current = token
 
-			elif self.origin[self.position] == '<': #we're about assign something
+			elif self.origin[self.position] == "<": #we're about assign something
 				token = Token(LSST, "<")
 				self.position += 1
 				self.current = token
 
-			elif self.origin[self.position] == '>': #we're about assign something
+			elif self.origin[self.position] == ">": #we're about assign something
 				token = Token(GRTT, ">")
+				self.position += 1
+				self.current = token
+
+			elif self.origin[self.position] == ",": #we're about assign something
+				token = Token("COMMA", ",")
 				self.position += 1
 				self.current = token
 
@@ -97,7 +102,7 @@ class Tokenizer:
 						token = Token(temp, temp) 
 						self.current = token
 				else:
-					token = Token(IDNT, temp)
+					token = Token("IDENTIFIER", temp)
 					self.current = token
 	
 			else:
@@ -119,56 +124,77 @@ class Parser: #token parser
 		Parser.token = Tokenizer(proCode) #previously missed something here
 		#Parser.token.selectNext()
 		tree = Parser.Program()
+		#print(tree)
 		return tree
 
 	def parserFactor():
 		if Parser.token.current.ttype == INT:
 			total = IntVal(Parser.token.current.tvalue, [])
 			Parser.token.selectNext()
+			return total
 
-		elif Parser.token.current.ttype == PLUS: 
+		if Parser.token.current.ttype == PLUS: 
 			Parser.token.selectNext()
 			children = [Parser.parserFactor()]
 			total = UnOp("+", children)
+			return total
 
-		elif Parser.token.current.ttype == MINUS:
+		if Parser.token.current.ttype == MINUS:
 			Parser.token.selectNext()
 			children = [Parser.parserFactor()]
 			total = UnOp("-", children)
+			return total
 
-		elif Parser.token.current.ttype == IDNT:
-			total = Identifier(Parser.token.current.tvalue, [])
-			Parser.token.selectNext()
-
-		elif Parser.token.current.ttype == "NOT":
+		if Parser.token.current.ttype == "NOT":
 			Parser.token.selectNext()
 			children = [Parser.parserFactor()]
 			total = UnOp("not",children)
+			return total
 
-		elif Parser.token.current.ttype == "TRUE":
+		if Parser.token.current.ttype == "TRUE":
 			total = BoolValue(True)
 			Parser.token.selectNext()
+			return total
 
-		elif Parser.token.current.ttype == "FALSE":
+		if Parser.token.current.ttype == "FALSE":
 			total = BoolValue(False)
 			Parser.token.selectNext()
+			return total
 
-		elif Parser.token.current.ttype == INPT:
+		if Parser.token.current.ttype == INPT:
 			total = InputOp([],[])
 			Parser.token.selectNext()
+			return total
 
-		elif Parser.token.current.ttype == POPN:
+		if Parser.token.current.ttype == "IDENTIFIER":
+			val = Parser.token.current.tvalue
+			Parser.token.selectNext()
+
+			if Parser.token.current.ttype == "(":
+				fvars = []
+				while Parser.token.current.ttype != ")":
+					Parser.token.selectNext()	
+					fvars.append(Parser.parserRelExpression())
+				Parser.token.selectNext()
+				return FuncCall(val, fvars)
+			
+			total = Identifier(val)
+			return total
+
+		if Parser.token.current.ttype == "INPT":
+			total = InputOp([],[])
+			Parser.token.selectNext()
+			return total
+
+		elif Parser.token.current.ttype == "(":
 			Parser.token.selectNext()
 			total = Parser.parserRelExpression()
-			if Parser.token.current.ttype == PCLS:
-				Parser.token.selectNext()
-			else:
+			if Parser.token.current.ttype != ")":
 				raise Exception("Error - missing parenthesis )")
 
-		else:
-			raise Exception("Error - unidentified token - " + str(Parser.token.current.tvalue))
+			Parser.token.selectNext()
+			return total
 
-		return total
 
 	def parserTerm():
 		total = Parser.parserFactor()
@@ -188,6 +214,8 @@ class Parser: #token parser
 				Parser.token.selectNext()
 				children = [total, Parser.parserFactor()]
 				total = BinOp("and", children)
+
+			Parser.token.selectNext()
 		
 		return total
 
@@ -248,12 +276,12 @@ class Parser: #token parser
 			if Parser.token.current.ttype == ASGN:
 				assign = Parser.token.current.tvalue
 				Parser.token.selectNext()
-				total = Assignment(assign, [Identifier(ident,[]), Parser.parserExpression()])
+				total = Assignment(assign, [Identifier(ident), Parser.parserExpression()])
 
 		elif Parser.token.current.ttype == "DIM":
 			Parser.token.selectNext()
 			if Parser.token.current.ttype == "IDENTIFIER":
-				var = Identifier(Parser.token.current.tvalue,[])
+				var = Identifier(Parser.token.current.tvalue)
 				Parser.token.selectNext()
 				if Parser.token.current.ttype == "AS":
 					Parser.token.selectNext()
@@ -277,6 +305,18 @@ class Parser: #token parser
 			if Parser.token.current.ttype != WEND:
 				raise Exception("Error - 'WEND' expected")
 			Parser.token.selectNext()
+
+		elif Parser.token.current.ttype == "CALL":
+			Parser.token.selectNext()
+			vn = Parser.token.current.tvalue
+			Parser.token.selectNext()
+			if Parser.token.current.ttype == "(":
+				fvlist = []
+				while Parser.token.current.ttype != ")":
+					Parser.token.selectNext()
+					fvlist.append(Parser.parserRelExpression())
+				Parser.token.selectNext()
+				return FuncCall(vn,fvlist)
 
 		elif Parser.token.current.ttype == IF:
 			Parser.token.selectNext()
@@ -309,25 +349,142 @@ class Parser: #token parser
 
 	def Program():
 		tempList = []
+		mainF = False
 
-		#treating beginning and end of input file
-		for i in ["sub", "main", "(", ")", "\n"]:
-			if Parser.token.current.tvalue.lower() != i:
-				print(i)
-				print(Parser.token.current.tvalue.lower())
-				raise Exception("Error - check your input file - got "+ Parser.token.current.tvalue)
-			Parser.token.selectNext()
+		while Parser.token.current.ttype != "EOF":
 
-		tempList.append(Parser.parserStatement())
+			if Parser.token.current.ttype == "SUB":
+				svarlist = []
+				snodelist = []
 
-		while Parser.token.current.ttype == "\n":
-			Parser.token.selectNext()
-			tempList.append(Parser.parserStatement())
+				for i in ["sub", "identifier", "("]:
+					if i.lower() == "identifier":
+						subv = Parser.token.current.tvalue
+						if subv.lower() == "main":
+							mainF =  True
 
-		if Parser.token.current.tvalue.lower() == "end":
-			Parser.token.selectNext()
-			if Parser.token.current.tvalue.lower() == "sub":
-				return Statements("statements", tempList)
+					if Parser.token.current.ttype.lower() != i:
+						raise Exception("Error - check your input file - got "+ Parser.token.current.tvalue)
+
+					Parser.token.selectNext()
+
+				while Parser.token.current.ttype != ")":
+					if Parser.token.current.ttype == "IDENTIFIER":
+						var =  Identifier(Parser.token.current.tvalue)
+						Parser.token.selectNext()
+
+						if Parser.token.current.ttype == "AS":
+							Parser.token.selectNext()
+							if Parser.token.current.ttype == "TYPE":
+								typevar = Parser.token.current.tvalue
+								Parser.token.selectNext()
+								svarlist.append(VarDec([var, NodeType(typevar)]))
+								if Parser.token.current.ttype == ",":
+									Parser.token.selectNext()
+								elif Parser.token.current.ttype == ")":
+									Parser.token.selectNext()
+									break
+								else: 
+									raise Exception("Error - Expected ',' got "+ Parser.token.current.tvalue)
+				
+							else: 
+								raise Exception("Error - Expected 'TYPE' got "+ Parser.token.current.tvalue)
+						
+						else: 
+							raise Exception("Error - Expected 'AS' got "+ Parser.token.current.tvalue)
+
+				if Parser.token.current.ttype == ")":
+					Parser.token.selectNext()
+
+				if Parser.token.current.ttype != "\n":
+					raise Exception("Error - Expected 'BREAK' got "+ Parser.token.current.tvalue)
+				
+				while Parser.token.current.ttype == "\n":
+					Parser.token.selectNext()
+					snodelist.append(Parser.parserStatement())
+
+				if Parser.token.current.tvalue.lower() == "end":
+					Parser.token.selectNext()
+					if Parser.token.current.tvalue.lower() == "sub":
+						Parser.token.selectNext()
+					else:
+						raise Exception("Error - Expected 'SUB' got "+ Parser.token.current.tvalue)
+				else:
+					raise Exception("Error - Expected 'END' got "+ Parser.token.current.tvalue)
+
+				tempList.append(SubDec(subv, [svarlist,snodelist]))
+
+
+#-------------------------------------- end sub --------------------------------------#
+
+			if Parser.token.current.ttype == "FUNCTION":
+				fvarlist = []
+				fnodelist = []
+
+				for i in ["function", "identifier", "("]:
+					if i.lower() == "identifier":
+						funcv = Identifier(Parser.token.current.tvalue)
+					if Parser.token.current.ttype.lower() != i:
+						raise Exception("Error - check your input file - got "+ Parser.token.current.tvalue)
+
+					Parser.token.selectNext()
+
+				while Parser.token.current.ttype != ")":
+					if Parser.token.current.ttype == "IDENTIFIER":
+						var =  Identifier(Parser.token.current.tvalue)
+						Parser.token.selectNext()
+
+						if Parser.token.current.ttype == "AS":
+							Parser.token.selectNext()
+							if Parser.token.current.ttype == "TYPE":
+								funcvar = Parser.token.current.tvalue
+								Parser.token.selectNext()
+								fvarlist.append(VarDec([var, NodeType(funcvar)]))
+								if Parser.token.current.ttype == "COMMA":
+									Parser.token.selectNext()
+								elif Parser.token.current.ttype == ")":
+									Parser.token.selectNext()
+									break
+								else: 
+									raise Exception("Error - Expected ',' got "+ Parser.token.current.tvalue)
+				
+							else: 
+								raise Exception("Error - Expected 'TYPE' got "+ Parser.token.current.tvalue)
+						
+						else: 
+							raise Exception("Error - Expected 'AS' got "+ Parser.token.current.tvalue)
+
+				if Parser.token.current.ttype == ")":
+					Parser.token.selectNext()
+
+				if Parser.token.current.ttype == "AS":
+					Parser.token.selectNext()
+					if Parser.token.current.ttype == "TYPE":	
+						vtype =  Parser.token.current.tvalue
+						Parser.token.selectNext()
+						fvarlist.append(VarDec([funcv, NodeType(vtype)]))
+				
+				while Parser.token.current.ttype == "\n":
+					Parser.token.selectNext()
+					fnodelist.append(Parser.parserStatement())
+
+				if Parser.token.current.tvalue == "END":
+					Parser.token.selectNext()
+					if Parser.token.current.tvalue == "FUNCTION":
+						Parser.token.selectNext()
+					else:
+						raise Exception("Error - Expected 'FUNCTION' got "+ Parser.token.current.tvalue)
+				else:
+					raise Exception("Error - Expected 'END' got "+ Parser.token.current.tvalue)
+
+				tempList.append(FuncDec(funcv.value, [fvarlist, fnodelist]))
+
+			elif Parser.token.current.ttype == "\n":
+				Parser.token.selectNext()
+
+		if mainF:
+			tempList.append(FuncCall("MAIN",[]))
+		return Statements("statements", tempList)
 
 
 class PrePro:
@@ -420,9 +577,8 @@ class Assignment(Node): #sets value to given variable - a = K
 
 
 class Identifier(Node):
-	def __init__(self, value, children):
+	def __init__(self, value):
 		self.value = value
-		self.children = children
 	
 	def Evaluate(self, symb):
 		return symb.getter(self.value)
@@ -434,7 +590,6 @@ class Statements(Node): #statement in statements
 	
 	def Evaluate(self, symb):
 		for i in self.children:
-			#idk why this doesn't work... I don't know what to do anymore
 			i.Evaluate(symb)
 
 class Print(Node): 
@@ -443,7 +598,10 @@ class Print(Node):
 		self.children = children
 	
 	def Evaluate(self,symb):
-		print(self.children[0].Evaluate(symb)[0])
+		if type(self.children[0].Evaluate(symb)) is tuple:
+			print(self.children[0].Evaluate(symb)[0])
+		else:
+			print(self.children[0].Evaluate(symb))
 
 class WhileOp(Node):
 	def __init__(self, value, children):
@@ -509,12 +667,61 @@ class SymbolTable:
 			raise Exception("Error - duplicate variable")
 		self.varDict[var] = value
 
+	def clone(self, ancsymb):
+		self.varDict = ancsymb.varDict.copy()
+
 class VarDec(Node):
 	def __init__(self, children):
 		self.children = children
 	
 	def Evaluate(self, symb):
-		symb.declarator(self.children[0].value, self.children[1].Evaluate(symb))
+		symb.declarator(self.children[0].value,[None, self.children[1]])
+
+class SubDec(Node):
+	def __init__(self, value, children):
+		self.children = children	
+		self.value = value
+
+	def Evaluate(self, symb):
+		symb.declarator(self.value,["SUB",[self.children[0], self.children[1]]])
+
+class FuncDec(Node):
+	def __init__(self, value, children):
+		self.children = children	
+		self.value = value
+
+	def Evaluate(self, symb):
+		symb.declarator(self.value,["FUNCTION", [self.children[0],self.children[1]]])
+
+class FuncCall(Node):
+	def __init__(self, value, children):
+		self.children = children	
+		self.value = value
+	
+	def Evaluate(self, symb):
+		#get fundec node
+		func =  symb.getter(self.value)
+		newsymb = SymbolTable()
+		newsymb.clone(symb)
+		ford = []
+
+		for i in func[1][0][0:-1]:
+			ford.append(i.children[0].value)
+			i.Evaluate(newsymb)
+
+		for j in range(len(ford)):
+			val = self.children[j].value
+			if val in symb.varDict:
+				val = symb.getter(val)
+			newsymb.setter(ford[j], val)
+		
+		for e in func[1][1]:
+			e.Evaluate(newsymb)
+
+		if func[0] == "FUNCTION":
+			return newsymb.getter(self.value)
+
+
 
 class BoolValue(Node):
 	def __init__(self, value):
@@ -524,7 +731,7 @@ class BoolValue(Node):
 		return (self.value,"boolean")
 
 
-#Tokens -- THIS IS A MESS AND I REGRET DOING THIS FOR REAL
+#Tokens
 PLUS = "PLUS" #sum 
 MINUS = "MINUS" #subtract | negative numbers
 INT = "INT" #digits (currently ints only)
@@ -549,13 +756,13 @@ ELSE = "ELSE"
 
 #reserved words list
 RWL = ["BEGIN", "END", "PRINT", "IF", "THEN", "ELSE", "OR", "AND", "WHILE", "WEND", "EOF",
-		"INPUT", "NOT", "DIM", "INTEGER", "BOOLEAN", "TRUE", "FALSE", "AS", "MAIN", "SUB"] 
+		"INPUT", "NOT", "DIM", "INTEGER", "BOOLEAN", "TRUE", "FALSE", "AS", "SUB", "FUNCTION"] 
 
 def main():
 	
 	symb = SymbolTable()
 	try:
-	#inpFile = "inputs.vbs"
+	#inpFile = "test.vbs"
 		inpFile = sys.argv[1]
 	except IndexError:
 		print("failed to find file")
