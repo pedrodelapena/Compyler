@@ -617,7 +617,7 @@ class IfOp(Node):
 		self.children = children
 	
 	def Evaluate(self,symb):
-		if self.children[0].Evaluate(symb)[1] == 'boolean':
+		if self.children[0].Evaluate(symb)[0] == True:
 			self.children[1].Evaluate(symb)
 		else:
 			if len(self.children) == 3:
