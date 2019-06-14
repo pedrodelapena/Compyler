@@ -372,10 +372,7 @@ class BinOp(Node): #binary ops -> a(binop)b = c
 	def __init__(self, value, children):
 		self.value = value
 		self.children = children
-		self.id = Node.newId()
-
-		if len(children) != 2:
-			raise Exception("Error - two children expected, got" +self.children)			
+		self.id = Node.newId()		
 
 	def Evaluate(self,symb):
 		#checking if variables types match so we can go on and do ops!
@@ -383,51 +380,54 @@ class BinOp(Node): #binary ops -> a(binop)b = c
 		Assembler.Write("PUSH EBX")
 		var2 = self.children[1].Evaluate(symb)
 
+		try:
+			var1 = var1[0][0]
+		except:
+			var1 = var1[0]
+
+		try:
+			var2 = var2[0][0]
+		except:
+			var2 = var2[0]
+
+		Assembler.Write("POP EAX")
+
 		if self.value == "+":
-			#return (var1 + var2, "integer")
-			Assembler.Write("POP EAX")
 			Assembler.Write("ADD EAX, EBX")
 			Assembler.Write("MOV EBX, EAX")
+			return var1 + var2, "integer"
 		elif self.value == "-":
-			#return (var1 - var2, "integer")
-			Assembler.Write("POP EAX")
 			Assembler.Write("SUB EAX, EBX")
 			Assembler.Write("MOV EBX, EAX")
+			return var1 - var2, "integer"
 		elif self.value == "*":
-			#return (var1 * var2, "integer")
-			Assembler.Write("POP EAX")
 			Assembler.Write("IMUL EBX")
 			Assembler.Write("MOV EBX, EAX")
+			return var1 * var2, "integer"
 		elif self.value == "/":
-			#return (var1 // var2, "integer")
-			Assembler.Write("POP EAX")
 			Assembler.Write("IDIV EBX")
 			Assembler.Write("MOV EBX, EAX")
+			return var1 // var2, "integer"
 		elif self.value == "=":
-			#return (var1 == var2, "boolean")
-			Assembler.Write("POP EAX")
 			Assembler.Write("CMP EAX, EBX")
 			Assembler.Write("CALL binop_je")
+			return var1 == var2, "boolean"
 		elif self.value == "<":
-			#return (var1 < var2, "boolean")
-			Assembler.Write("POP EAX")
 			Assembler.Write("CMP EAX, EBX")
 			Assembler.Write("CALL binop_jl")
+			return var1 < var2, "boolean"
 		elif self.value == ">":
-			#return (var1 > var2, "boolean")
-			Assembler.Write("POP EAX")
 			Assembler.Write("CMP EAX, EBX")
 			Assembler.Write("CALL binop_jg")
+			return var1 > var2, "boolean"
 		elif self.value == "or":
-			#return (var1 or var2, "boolean")
-			Assembler.Write("POP EAX")
 			Assembler.Write("OR EAX, EBX")
 			Assembler.Write("MOV EBX, EAX")
+			return var1 or var2, "boolean"
 		elif self.value == "and":
-			#return (var1 and var2, "boolean")
-			Assembler.Write("POP EAX")
 			Assembler.Write("AND EAX, EBX")
 			Assembler.Write("MOV EBX, EAX")
+			return var1 and var2, "boolean"
 
 class UnOp(Node): #unary ops -> -(a) = -a | -(-a) = a
 	def __init__(self, value, children):
@@ -437,22 +437,25 @@ class UnOp(Node): #unary ops -> -(a) = -a | -(-a) = a
 	
 	def Evaluate(self, symb):
 		if self.value == "+":
-			#return self.children[0].Evaluate(symb)
 			Assembler.Write("MOV EAX, 1")
 			Assembler.Write("IMUL EBX")
 			Assembler.Write("MOV EBX, EAX")
+			return self.children[0].Evaluate(symb)
+
 		elif self.value == "-":
-			#var = self.children[0].Evaluate(symb)
-			#var = (var[0]*-1,var[1])
-			#return var
 			Assembler.Write("MOV EAX, -1")
 			Assembler.Write("IMUL EBX")
 			Assembler.Write("MOV EBX, EAX")
+			var = self.children[0].Evaluate(symb)
+			var = (var[0]*-1,var[1])
+			return var
+
 		elif self.value == "not":
-			#var = self.children[0].Evaluate(symb)
-			#var = (not var[0],var[1])		
-			#return var
 			Assembler.Write("NEG EBX")
+			var = self.children[0].Evaluate(symb)
+			var = (not var[0],var[1])		
+			return var
+
 		else:
 			raise Exception("Error - undefined UnOp: "+ str(self.value))
 
@@ -463,8 +466,8 @@ class IntVal(Node): #gets and returns int
 		self.id = Node.newId()
 	
 	def Evaluate(self, symb):
-		#return (self.value,"integer")
 		Assembler.Write("MOV EBX, "+str(self.value))
+		return (self.value,"integer")
 
 class NoOp(Node): #dummy - nothing to do here
 	def __init__(self, value, children):
@@ -494,8 +497,8 @@ class Identifier(Node):
 		self.id = Node.newId()
 	
 	def Evaluate(self, symb):
-		#return symb.getter(self.value)
 		Assembler.Write("MOV EBX, [EBP-"+str(symb.getter(self.value)[2])+"]")
+		return symb.getter(self.value)
 
 class Statements(Node): #statement in statements
 	def __init__(self, value, children):
@@ -567,7 +570,7 @@ class InputOp(Node):
 		self.id = Node.newId()
 	
 	def Evaluate(self,symb):
-		#return (int(input()),"integer")
+		return (int(input()),"integer")
 		pass
 
 class NodeType(Node):
@@ -622,8 +625,8 @@ class BoolValue(Node):
 		self.id = Node.newId()
 	
 	def Evaluate(self,symb):
-		#return (self.value,"boolean")
 		Assembler.Write("MOV EBX, "+str(self.value))
+		return (self.value,"boolean")
 
 
 #Tokens -- THIS IS A MESS AND I REGRET DOING THIS FOR REAL
@@ -661,22 +664,16 @@ STDIN equ 0
 STDOUT equ 1
 True equ 1
 False equ 0
-
 segment . data
-
 segment . bss ; variaveis
   res RESB 1
-
 section .text
   global_start
-
 print:  ; subrotina print
   PUSH EBP ; guarda o base pointer
   MOV EBP, ESP ; estabelece um novo base pointer
-
   MOV EAX, [EBP+8] ; 1 argumento antes do RET e EBP
   XOR ESI, ESI
-
 print_dec: ; empilha todos os digitos
   MOV EDX, 0
   MOV EBX, 0x000A
@@ -687,40 +684,31 @@ print_dec: ; empilha todos os digitos
   CMP EAX, 0
   JZ print_next ; quando acabar pula
   JMP print_dec
-
 print_next:
   CMP ESI, 0
   JZ print_exit ; quando acabar de imprimir
   DEC ESI
-
   MOV EAX, SYS_WRITE
   MOV EBX, STDOUT
-
   POP ECX
   MOV [res], ECX
   MOV ECX, res
-
   MOV EDX, 1
   INT 0x80
   JMP print_next
-
 print_exit:
   POP EBP
   RET
-
 ; subrotinas if/while
 binop_je:
   JE binop_true
   JMP binop_false
-
 binop_jg:
   JG binop_true
   JMP binop_false
-
 binop_jl:
   JL binop_true
   JMP binop_false
-
 binop_false:
   MOV EBX, False  
   JMP binop_exit
@@ -742,7 +730,7 @@ def main():
 	
 	symb = SymbolTable()
 	try:
-	#inpFile = "inputs.vbs"
+	#inpFile = "atest.vbs"
 		inpFile = sys.argv[1]
 	except IndexError:
 		print("failed to find file")
