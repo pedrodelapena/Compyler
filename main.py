@@ -115,8 +115,6 @@ class Tokenizer:
 
 		return token
 
-
-
 class Parser: #token parser
 
 	def run(stg):
@@ -214,8 +212,6 @@ class Parser: #token parser
 				Parser.token.selectNext()
 				children = [total, Parser.parserFactor()]
 				total = BinOp("and", children)
-
-			Parser.token.selectNext()
 		
 		return total
 
@@ -272,11 +268,37 @@ class Parser: #token parser
 	def parserStatement():
 		if Parser.token.current.ttype == IDNT:
 			ident = Parser.token.current.tvalue
-			Parser.token.selectNext()
+			temp = True
+			if Parser.token.current.tvalue == "CALL":
+				Parser.token.selectNext()
+				ident = Parser.token.current.tvalue
+				Parser.token.selectNext()
+				
+				if Parser.token.current.ttype != "(":
+					raise Exception("Expected ( when calling function")
+				Parser.token.selectNext()
+
+				expr = []
+				singlearg = True
+				while Parser.token.current.ttype != ")":
+					if singlearg == False:
+						if Parser.token.current.ttype != "COMMA":
+							raise Exception("Expected COMMA when calling function with 2+ args")
+						Parser.token.selectNext()
+					expr.append(Parser.parserRelExpression())
+					singlearg = False
+				Parser.token.selectNext()
+				return FuncCall(ident, expr)
+
+				temp = False
+			if temp:
+				Parser.token.selectNext()
+
 			if Parser.token.current.ttype == ASGN:
 				assign = Parser.token.current.tvalue
 				Parser.token.selectNext()
 				total = Assignment(assign, [Identifier(ident), Parser.parserExpression()])
+
 
 		elif Parser.token.current.ttype == "DIM":
 			Parser.token.selectNext()
@@ -510,8 +532,14 @@ class BinOp(Node): #binary ops -> a(binop)b = c
 
 	def Evaluate(self,symb):
 		#checking if variables types match so we can go on and do ops!
-		var1 = self.children[0].Evaluate(symb)[0]
-		var2 = self.children[1].Evaluate(symb)[0]
+		try:
+			var1 = self.children[0].Evaluate(symb)[0]
+		except:
+			var1 = self.children[0].Evaluate(symb)
+		try: 
+			var2 = self.children[1].Evaluate(symb)[0]
+		except:
+			var2 = self.children[1].Evaluate(symb)
 
 		if self.value == "+":
 			return (var1 + var2, "integer")
@@ -655,16 +683,16 @@ class SymbolTable:
 		if var in self.varDict.keys():
 			return self.varDict[var]
 		else:
-			raise Exception("Error - undeclared variable")
+			raise Exception("Error - undeclared variable " + str(var))
 
 	def setter(self, var, value): #assigns value to variable
 		if var not in self.varDict:
-			raise Exception("Error - undeclared variable")		
+			raise Exception("Error - undeclared variable " + str(var))		
 		self.varDict[var] = value
 	
 	def declarator(self, var, value):
 		if var in self.varDict:
-			raise Exception("Error - duplicate variable")
+			raise Exception("Error - duplicate variable " + str(var))
 		self.varDict[var] = value
 
 	def clone(self, ancsymb):
@@ -704,10 +732,14 @@ class FuncCall(Node):
 		newsymb = SymbolTable()
 		newsymb.clone(symb)
 		ford = []
-
-		for i in func[1][0][0:-1]:
-			ford.append(i.children[0].value)
-			i.Evaluate(newsymb)
+		try:
+			for i in func[1][0][0:-1]:
+				ford.append(i.children[0].value)
+				i.Evaluate(newsymb)
+		except:
+			for i in func[1][1][0]:
+				ford.append(i.children[0].value)
+				i.Evaluate(newsymb)
 
 		for j in range(len(ford)):
 			val = self.children[j].value
@@ -761,21 +793,21 @@ RWL = ["BEGIN", "END", "PRINT", "IF", "THEN", "ELSE", "OR", "AND", "WHILE", "WEN
 def main():
 	
 	symb = SymbolTable()
-	try:
-	#inpFile = "test.vbs"
-		inpFile = sys.argv[1]
-	except IndexError:
-		print("failed to find file")
-		sys.exit(1)
+	#try:
+	inpFile = "test.vbs"
+	#	inpFile = sys.argv[1]
+	#except IndexError:
+	#	print("failed to find file")
+	#	sys.exit(1)
 
 	with open(inpFile, "r") as file:
 		inp = file.read() +"\n"
-	try:
-		inp = inp.replace("\\n", "\n") 
-		out = Parser.run(inp)
-		out.Evaluate(symb)
-	except Exception as err:
-		print(err)
+	#try:
+	inp = inp.replace("\\n", "\n") 
+	out = Parser.run(inp)
+	out.Evaluate(symb)
+	#except Exception as err:
+	#	print(err)
 
 if __name__== "__main__":
     main()
