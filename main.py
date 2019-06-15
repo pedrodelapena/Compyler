@@ -540,6 +540,9 @@ class BinOp(Node): #binary ops -> a(binop)b = c
 			var2 = self.children[1].Evaluate(symb)[0]
 		except:
 			var2 = self.children[1].Evaluate(symb)
+		
+		if var1 == None:
+			var1 = self.children[0].Evaluate(symb.ancestor)
 
 		if self.value == "+":
 			return (var1 + var2, "integer")
@@ -676,12 +679,17 @@ class NodeType(Node):
 			return (self.value, False)
 
 class SymbolTable:
-	def __init__(self):
+	def __init__(self, ancestor):
 		self.varDict = {}
+		self.ancestor = ancestor
 
 	def getter(self, var): #returns value for variable
 		if var in self.varDict:
 			return self.varDict[var]
+
+		elif self.ancestor != None:
+			return self.ancestor.getter(var)
+
 		else:
 			raise Exception("Error - undeclared variable " + str(var))
 
@@ -729,8 +737,7 @@ class FuncCall(Node):
 		func =  symb.getter(self.value)
 		ftype = func[0]
 		fnode = func[1]
-		newsymb = SymbolTable()
-		newsymb.clone(symb)
+		newsymb = SymbolTable(symb)
 		ford = []
 		
 		try:
@@ -794,7 +801,7 @@ RWL = ["BEGIN", "END", "PRINT", "IF", "THEN", "ELSE", "OR", "AND", "WHILE", "WEN
 
 def main():
 	
-	symb = SymbolTable()
+	symb = SymbolTable(None)
 	#try:
 	inpFile = "test.vbs"
 	#	inpFile = sys.argv[1]
