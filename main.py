@@ -680,14 +680,12 @@ class SymbolTable:
 		self.varDict = {}
 
 	def getter(self, var): #returns value for variable
-		if var in self.varDict.keys():
+		if var in self.varDict:
 			return self.varDict[var]
 		else:
 			raise Exception("Error - undeclared variable " + str(var))
 
 	def setter(self, var, value): #assigns value to variable
-		if var not in self.varDict:
-			raise Exception("Error - undeclared variable " + str(var))		
 		self.varDict[var] = value
 	
 	def declarator(self, var, value):
@@ -729,28 +727,32 @@ class FuncCall(Node):
 	def Evaluate(self, symb):
 		#get fundec node
 		func =  symb.getter(self.value)
+		ftype = func[0]
+		fnode = func[1]
 		newsymb = SymbolTable()
 		newsymb.clone(symb)
 		ford = []
+		
 		try:
-			for i in func[1][0][0:-1]:
-				ford.append(i.children[0].value)
+			for i in fnode[0][0].children[0].value:
+				ford.append(i)
 				i.Evaluate(newsymb)
 		except:
-			for i in func[1][1][0]:
+			for i in fnode[0][0:-1]:
 				ford.append(i.children[0].value)
 				i.Evaluate(newsymb)
 
-		for j in range(len(ford)):
-			val = self.children[j].value
-			if val in symb.varDict:
-				val = symb.getter(val)
-			newsymb.setter(ford[j], val)
+		for i, c in enumerate(self.children):
+			val = c.Evaluate(newsymb)
+			try:
+				newsymb.setter(ford[i+1], val[0])
+			except:
+				newsymb.setter(ford[i], val[0])
 		
-		for e in func[1][1]:
+		for e in fnode[1]:
 			e.Evaluate(newsymb)
 
-		if func[0] == "FUNCTION":
+		if ftype == "FUNCTION":
 			return newsymb.getter(self.value)
 
 
